@@ -1,0 +1,56 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Mokkapi{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" >
+  <!-- Tailwind CSS CDN for rapid prototyping -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="{% static 'css/styles.css' %}" type="text/css" />
+  {% block head %}{% endblock head %}
+</head>
+<body class="bg-gray-100">
+  <!-- Navigation Bar -->
+  <nav class="bg-white shadow">
+    <div class="container mx-auto px-4">
+      <div class="flex justify-between items-center py-4">
+        <div>
+          <a href="{% url 'home' %}" class="flex items-center">
+            <img class=logo-navbar src="{% static 'images/logo.png' %}">
+            <span class="text-xl font-bold text-gray-800 ml-2">Mokkapi</span>
+          </a>
+        </div>
+        <div>
+          {% if user.is_authenticated %}
+          <a href="{% url 'home' %}" class="text-gray-600 hover:text-gray-800 mx-2">Home</a>
+          <a href="{% url 'account' %}" class="text-gray-600 hover:text-gray-800 mx-2">Account</a>
+          <form method="post" action="{% url 'logout' %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" style="background: none; border: none; padding: 0; cursor: pointer;" class="text-gray-600 hover:text-gray-800 mx-2">Logout</button>
+          </form>
+          {% else %}
+            <a href="{% url 'login' %}" class="text-gray-600 hover:text-gray-800 mx-2">Login</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  
+  <!-- Main Content Block -->
+  <div class="container mx-auto py-8">
+    {% block content %}{% endblock %}
+  </div>
+  
+  <!-- Footer -->
+  <footer class="bg-gray-800 py-8">
+    <div class="container mx-auto px-4 text-center text-white">
+      <p>&copy; 2025 Mokkapi. All rights reserved.</p>
+    </div>
+  </footer>
+  
+</body>
+</html>

@@ -1,0 +1,42 @@
+{% extends 'mokkapi/base.html' %}
+
+{% block title %}
+About Mokkapi
+{% endblock title %}
+
+{% block content %}
+<section id="about" class="py-16">
+    <div class="container mx-auto px-4">
+      <h2 class="text-3xl font-bold text-center mb-8">About Us</h2>
+      <div class="max-w-2xl mx-auto text-center">
+        <p class="text-gray-700">We're a small team dedicated to building simple, robust apps that perform a their core task very well. We are big believers in allowing our customers the option to buy the software we make (not just license it as a subscription). Which is why we've opted for an open source model.</p>
+      </div>
+      <br>
+      <h2 class="text-3xl font-bold text-center mb-8">About the tool</h2>
+      <div class="max-w-2xl mx-auto text-center">
+        <p class="text-gray-700"> {% filter force_escape %}It does what it says on the tin. 
+          You can create superficial API endpoints that return a JSON you define. 
+          The core version has a few keywords you can't use out of the box, but rerouting around those isn't too difficult and outlined in our documentation. 
+          The SaaS version allows you to create any arbitrary endpoint following the root URL of 'https://www.mokkapi.com/<your username>/'{% endfilter %}</p> 
+        <p class="text-gray-700">This is meant to address a number of use cases where you don't want to mock locally, but don't need a full copy of production running. 
+          You can see a number of these use cases outlined in our case studies section.</p>
+        <p class="text-gray-700">As part of our desire to make the tool as simple to use and only have one plan that works for everyone. 
+          We aren't introducing any consumption based pricing. 
+          So any user can create unlimited end points and can hammer them as much as they want. 
+          But we will be working under a fair use policy that will protect everyone by having built-in rate limits and size limits to JSONs. 
+          Read more about this evolving policy on our blog.</p>
+      </div>
+      <br>
+      <h2 class="text-3xl font-bold text-center mb-8">Our Licensing TLDR</h2>
+      <div class="max-w-2xl mx-auto text-center">
+        <p class="text-gray-700">The license we have for Mokkapi can be explained quite simply. 
+          Our SaaS EULA is like any other, we host it and do our best to keep it running smoothly and securely for you. 
+          For our self-hosted versions, see below.</p> 
+        <p class="text-gray-700">The code will always be public and you are free to extend it or modify it as you need (we only support and update the core version). 
+          If you are using it for non commercial purposes, it's free to use. 
+          We intend to use the honor system, but those who pay for the self-hosted version will receive a code they can add to their system and will allow them to submit feature requests.</p>
+        <p class="text-gray-700">If you're using it for work, you need to pay for it. The first payment is for the software, all subsequent payments are to support our continued development of the product. So the license upon purchase is a perpetual one, the rest are support and maintenance payments.</p>
+      </div>
+    </div>
+  </section>
+  {% endblock content %}
