@@ -29,3 +29,12 @@ COPY . .
 
 # run entrypoint.sh
 # ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+
+# Collect static files (adjust if needed)
+RUN python manage.py collectstatic --noinput
+
+# Expose the port your app runs on (Gunicorn default)
+EXPOSE 8000
+
+# Start Gunicorn with your WSGI module (adjust as necessary)
+CMD ["gunicorn", "mokkapi.wsgi:application", "--bind", "0.0.0.0:8000"]

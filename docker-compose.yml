@@ -1,14 +1,20 @@
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
-    # command: gunicorn --bind 0.0.0.0:8000 mokkapi.wsgi:application 
+    container_name: mokkapi
+    expose:
+      - "8000"
+    environment:
+      - VIRTUAL_HOST=demo.mokkapi.com
+      - LETSENCRYPT_HOST=demo.mokkapi.com
+      - LETSENCRYPT_EMAIL=phil@mokkapi.com
+    restart: always
     volumes:
       - ./:/usr/src/app/
     ports:
       - 8000:8000
     env_file:
-      - ./.env.dev
+      - ./.env
     depends_on:
       - db
   db:
@@ -21,6 +27,27 @@ services:
       POSTGRES_PASSWORD: mokkapi_db_pass
     ports:
       - "5432:5432"
+
+  nginx-proxy:
+    image: jwilder/nginx-proxy
+    container_name: nginx_proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      - ./certs:/etc/nginx/certs:ro
+    restart: always
+
+  letsencrypt:
+    image: jrcs/letsencrypt-nginx-proxy-companion
+    container_name: nginx_proxy_le
+    depends_on:
+      - nginx-proxy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/nginx/certs:rw
+    restart: always
 
 volumes:
   postgres_data:
