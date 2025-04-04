@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core', 
     'user_management',
+    'storages',
 ]
 
 MIDDLEWARE = [
@@ -123,14 +124,33 @@ USE_I18N = True
 
 USE_TZ = True
 
+# DigitalOcean Spaces credentials (for uploading via collectstatic)
+AWS_ACCESS_KEY_ID = os.getenv('DIGITAL_OCEAN_SPACES_ACCESS_KEY', 'your_digitalocean_space_access_key')
+AWS_SECRET_ACCESS_KEY = os.getenv('DIGITAL_OCEAN_SPACES_SECRET_KEY', 'your_digitalocean_space_secret_key')
+AWS_STORAGE_BUCKET_NAME = os.getenv('DIGITAL_OCEAN_SPACES_NAME', 'your_space_name')
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
+# DigitalOcean Spaces endpoint (adjust the region if needed, e.g., nyc3)
+AWS_S3_ENDPOINT_URL = os.getenv('DIGITAL_OCEAN_SPACES_URL', 'https://nyc3.digitaloceanspaces.com')
 
-STATIC_URL = 'static/'
+# Optionally, define a custom domain. If not using one, Django can build the URL directly.
+# Example: 'your_space_name.nyc3.digitaloceanspaces.com'    
+AWS_S3_CUSTOM_DOMAIN = os.getenv('DIGITAL_OCEAN_SPACES_URL')
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
+AWS_S3_CDN_DOMAIN = os.getenv('DIGITAL_OCEAN_CDN_URL')
+
+# Set default parameters for uploaded files
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',  # Adjust caching as needed
+}
+
+# Specify the location within your Space to store static files
+AWS_LOCATION = 'static'
+
+# Use S3Boto3 storage for static files
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# Set STATIC_URL to point to the public URL of your Space's static folder
+STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
