@@ -5,15 +5,17 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse, Http404, HttpResponse
-from django.shortcuts import render, redirect, get_object_or_404
+from django.shortcuts import render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+import base64
 import json
+import secrets
 
 from .forms import MokkEndpointForm
-from .models import MokkBaseJSON
+from .models import AuthenticationProfile, MokkBaseJSON
 from .utils import build_folder_tree, build_tree
 
 
@@ -244,12 +246,72 @@ def serve_json_view(request, endpoint_path):
         # Find the endpoint by the normalized path
         endpoint = get_object_or_404(MokkBaseJSON, path=normalized_path)
         # Return the stored JSON data
-        return JsonResponse(endpoint.data, safe=False) # safe=False allows non-dict JSON (like lists)
-    except Http404:
+    except MokkBaseJSON.DoesNotExist:
         return JsonResponse({'error': 'Endpoint not found.'}, status=404)
     except Exception as e:
         # Log error e
         return JsonResponse({'error': 'Server error retrieving endpoint data.'}, status=500)
+    
+    auth_profile = endpoint.authentication
+    if auth_profile:
+        auth_type = auth_profile.auth_type
+
+        # --- API Key Authentication ---
+        if auth_type == AuthenticationProfile.AuthType.API_KEY:
+            provided_key = request.headers.get('X-API-Key') # Common header
+            # Alternative: Check 'Authorization: ApiKey <key>'
+            # auth_header = request.headers.get('Authorization')
+            # if auth_header and auth_header.lower().startswith('apikey '):
+            #    provided_key = auth_header.split(maxsplit=1)[1]
+
+            if not provided_key:
+                return JsonResponse({'error': 'API Key required.'}, status=401)
+
+            # Timing-attack resistant comparison
+            if not secrets.compare_digest(provided_key, auth_profile.api_key):
+                return JsonResponse({'error': 'Invalid API Key.'}, status=401)
+
+            # API Key validated, proceed.
+
+        # --- Basic Authentication ---
+        elif auth_type == AuthenticationProfile.AuthType.BASIC:
+            auth_header = request.headers.get('Authorization')
+            if not auth_header or not auth_header.lower().startswith('basic '):
+                response = JsonResponse({'error': 'Basic Auth required.'}, status=401)
+                response['WWW-Authenticate'] = 'Basic realm="MokkAPI Protected Endpoint"'
+                return response
+
+            try:
+                encoded_credentials = auth_header.split(maxsplit=1)[1]
+                decoded_credentials = base64.b64decode(encoded_credentials).decode('utf-8')
+                username, password = decoded_credentials.split(':', 1)
+            except (IndexError, ValueError, base64.binascii.Error):
+                response = JsonResponse({'error': 'Invalid Basic Auth header format.'}, status=401)
+                response['WWW-Authenticate'] = 'Basic realm="MokkAPI Protected Endpoint"'
+                return response
+
+            # Check username and hashed password (timing safe via check_password)
+            if not secrets.compare_digest(username, auth_profile.basic_auth_username) or \
+               not auth_profile.check_password(password):
+                response = JsonResponse({'error': 'Invalid username or password.'}, status=401)
+                response['WWW-Authenticate'] = 'Basic realm="MokkAPI Protected Endpoint"'
+                return response
+
+            # Basic Auth validated, proceed.
+
+        else:
+            # Should not happen if data is clean
+             # Log error: Unknown auth type on profile ID auth_profile.id
+            return JsonResponse({'error': 'Internal server error: Invalid authentication configuration.'}, status=500)
+
+    # --- If authentication passed (or wasn't required) ---
+    try:
+        # Return the stored JSON data
+        return JsonResponse(endpoint.data, safe=False)
+    except Exception as e:
+        # Log error e
+        return JsonResponse({'error': 'Server error serving endpoint data.'}, status=500)
+
 
 
 @login_required # Ensure only logged-in users can export
