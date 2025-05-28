@@ -1,5 +1,15 @@
+FROM node:23-slim AS frontend-builder
+WORKDIR /app
+
+COPY package.json package-lock.json /app/
+RUN npm ci
+COPY assets/ /app/assets/
+COPY vite.config.js tailwind.config.js postcss.config.js tsconfig.json /app/
+
+RUN npm run build
+
 # Dockerfile
-FROM python:3.11.4-slim-buster
+FROM python:3.13.3-slim
 
 # set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -22,13 +32,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 #RUN sed -i 's/\r$//g' /usr/src/app/entrypoint.sh
 # RUN chmod +x /usr/src/app/entrypoint.sh
 
-
-
 # Copy project files
 COPY . .
 
 # run entrypoint.sh
 # ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+
+COPY --from=frontend-builder /app/static/ ./static/
 
 # Collect static files (adjust if needed)
 RUN python manage.py collectstatic --noinput

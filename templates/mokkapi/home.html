@@ -1,381 +1,161 @@
 {% extends 'mokkapi/base.html' %}
-
+{% load static %}
 {% block title %}Mokkapi Home{% endblock %}
 
 {% block content %}
-  <div>
-    <div>
-      <button id="create-new-btn" class="mb-6 inline-block bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
-        Create New Endpoint
-      </button>
-    </div>
-    <div class="p-0">
-      <div id="resizable-container" class="flex h-screen">
-          <nav id="sidebar" class="bg-gray-100 border-r p-3 w-64">
-              <div class="pt-3">
-                  <h5 class="px-3 font-semibold text-lg">API Endpoints</h5>
-                  <div id="tree-container" class="p-3"></div>
-              </div>
-          </nav>
-          <div id="resizer" class="w-[5px] cursor-ew-resize bg-gray-300"></div>
-          <main role="main" id="main-content" class="flex-grow-1 pt-3 px-4">
-            {{ structured_endpoints|json_script:"endpoints-data" }}
-              <h2 id="endpoint-title" class="border-b pb-2 mb-3">Select or Create Endpoint</h2>
+  <div class="container mx-auto px-4 py-4">
+
+    <div id="layout" class="flex border rounded shadow-sm" style="height: 80vh;">
+      <aside id="sidebar" class="bg-gray-100 border-r p-3 w-64 h-full overflow-y-auto">
+        <div class="pt-1">
+          <h5 class="px-3 font-semibold text-lg mb-2">API Endpoints</h5>
+          <div id="tree-container" class="px-1"></div>
+        </div>
+      </aside>
+      
+      <div id="resizer" class="w-1.5 cursor-ew-resize bg-gray-300 hover:bg-gray-400 transition-colors duration-150"></div>
+
+      <main role="main" id="main-content" class="flex-1 pt-3 px-4 min-h-0 h-full overflow-y-auto">
+          <div class="mb-4 border-b border-gray-200 sticky top-0 bg-white z-10">
+              <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+                  <a href="#" id="tab-endpoints" class="border-indigo-500 text-indigo-600 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm" aria-current="page">Endpoints</a>
+                  <a href="#" id="tab-auth" class="border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm">Authentication</a>
+              </nav>
+          </div>
+ 
+          <div id="tab-content-endpoints">
+            <button id="create-new-btn" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded mb-3 text-sm">
+              Create New Endpoint
+            </button>
+            <h2 id="endpoint-title" class="mb-3 text-xl font-semibold">Select or Create Endpoint</h2>
               <div id="endpoint-details">
-                  <p>Click an endpoint from the tree to see details, or click "Create New Endpoint".</p>
+                  <p class="text-gray-600">Click an endpoint from the tree to see details, or click "Create New Endpoint".</p>
               </div>
-              <div id="endpoint-form-container" class="hidden">
-                 <form id="endpoint-form">
-                    {% csrf_token %} 
-                    <input type="hidden" id="form-mode" value="create"> 
-                    <div class="mb-4">
-                        <label for="path-input" class="block font-medium mb-1">Endpoint Path:</label>
-                        <input type="text" id="path-input" name="path" class="border border-gray-300 rounded px-3 py-2 w-full" placeholder="e.g., users/profile" required>
-                        <p id="path-help-text" class="text-sm text-gray-500 mt-1">Enter the unique path. Leading/trailing slashes will be ignored.</p>
-                    </div>
-                    <div class="mb-4">
-                        <label for="data-input" class="block font-medium mb-1">JSON Data:</label>
-                        <textarea id="data-input" name="data" class="border border-gray-300 rounded px-3 py-2 w-full" rows="10" placeholder='{ "message": "Hello, world!" }' required></textarea>
-                        <p class="text-sm text-gray-500 mt-1">Enter the valid JSON to be returned by this endpoint.</p>
-                         <small id="json-validation-error" class="text-red-500"></small>
-                    </div>
 
-                    <button type="submit" id="save-endpoint-btn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded">Save Endpoint</button>
-                    <button type="button" id="cancel-edit-btn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded ml-2">Cancel</button>
-                    <button type="button" id="delete-endpoint-btn" class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded ml-2 hidden">Delete Endpoint</button>
-                 </form>
+
+              <div id="endpoint-form-container" class="hidden border p-4 rounded bg-gray-50 mt-4">
+                  <form id="endpoint-form">
+                     {% csrf_token %}
+                     <input type="hidden" id="endpoint-form-mode" value="create">
+                     <input type="hidden" id="endpoint-id" value=""> <div class="mb-4">
+                         <label for="endpoint-path-input" class="block font-medium text-sm mb-1">Endpoint Path:</label>
+                         <input type="text" id="endpoint-path-input" name="path" class="border border-gray-300 rounded px-3 py-2 w-full text-sm" placeholder="e.g., users/profile" required>
+                         <p class="text-xs text-gray-500 mt-1">Unique path fragment.</p>
+                     </div>
+                     <div class="mb-4">
+                         <label for="endpoint-description-input" class="block font-medium text-sm mb-1">Description:</label>
+                         <textarea id="endpoint-description-input" name="description" class="border border-gray-300 rounded px-3 py-2 w-full text-sm" rows="2"></textarea>
+                     </div>
+           
+                     <div id="initial-handler-section" class="mt-4 border-t pt-3">
+                         <h5 class="font-semibold text-base mb-2">Initial Handler (Required for Create)</h5>
+                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                         <div class="mb-3">
+                              <label class="block font-medium text-sm mb-1">HTTP Method:</label>
+                              <select name="initial_http_method" class="border border-gray-300 rounded px-3 py-2 w-full text-sm">
+                                  <option>GET</option>
+                                  <option>POST</option>
+                                  <option>PUT</option>
+                                  <option>PATCH</option>
+                                  <option>DELETE</option>
+                              </select>
+                         </div>
+                          <div class="mb-3 md:col-span-2">
+                              <label class="block font-medium text-sm mb-1">Response Body (e.g., JSON string):</label>
+                              <textarea name="initial_response_body" class="border border-gray-300 rounded px-3 py-2 w-full font-mono text-xs" rows="5">{ "message": "Default Response" }</textarea>
+                          </div>
+                      </div>
+                      <p class="text-xs text-gray-500 mt-1">Set Status/Headers via "Edit Handler" after creation.</p>
+                  </div>
+                  <div id="feedback-message" class="mt-3 text-sm"></div>
+                  <div class="mt-4">
+                     <button type="submit" id="save-endpoint-btn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded text-sm">Save Endpoint</button>
+                     <button type="button" id="cancel-endpoint-edit-btn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded ml-2 text-sm">Cancel</button>
+                  </div>
+              </form>
+          </div>
+           
+               <div id="handler-form-container" class="hidden border p-4 rounded bg-gray-50 mt-4">
+                    <h4 id="handler-form-title" class="text-lg font-semibold mb-3">Handler Form</h4>
+                    <form id="handler-form">
+                       {% csrf_token %} 
+                       <input type="hidden" id="handler-form-mode" value="create">
+                       <input type="hidden" id="handler-id" value=""> 
+                       <input type="hidden" id="handler-endpoint-id" name="endpoint_id" value=""> 
+                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                          <div>
+                              <label class="block font-medium text-sm mb-1">HTTP Method:</label>
+                              <select id="handler-method-select" name="http_method" class="border border-gray-300 rounded px-3 py-2 w-full text-sm" required>
+                               <option>GET</option>
+                               <option>POST</option>
+                               <option>PUT</option>
+                               <option>PATCH</option>
+                               <option>DELETE</option>
+                               <option>OPTIONS</option>
+                               <option>HEAD</option>
+                           </select>
+                        </div>
+                        <div>
+                           <label class="block font-medium text-sm mb-1">Status Code:</label>
+                           <input type="number" id="handler-status-input" name="response_status_code" value="200" min="100" max="599" class="border border-gray-300 rounded px-3 py-2 w-full text-sm" required>
+                        </div>
+                      </div>
+                      <div class="mb-3">
+                          <label class="block font-medium text-sm mb-1">Description:</label>
+                          <input type="text" id="handler-description-input" name="description" class="border border-gray-300 rounded px-3 py-2 w-full text-sm" placeholder="Optional e.g., 'Get user profile'">
+                       </div>
+                       <div class="mb-3">
+                        <label for="handler-auth-select" class="block font-medium text-sm mb-1">Auth Profiles:</label>
+                        <select id="handler-auth-select" name="authentication_profile_ids" multiple
+                                class="border border-gray-300 rounded px-3 py-2 w-full text-sm">
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Ctrl/Cmd+click to select multiple.</p>
+                      </div>
+                        <div class="mb-3">
+                           <label for="handler-headers-input" class="block font-medium text-sm mb-1">Response Headers (JSON Object):</label>
+                           <textarea id="handler-headers-input" name="response_headers" class="border border-gray-300 rounded px-3 py-2 w-full font-mono text-xs" rows="4" placeholder='{ "Content-Type": "application/json", "X-Custom-Header": "value" }'></textarea>
+                           <p class="text-xs text-gray-500 mt-1">Enter valid JSON. Content-Type is recommended.</p>
+                        </div>
+                         <div class="mb-3">
+                           <label for="handler-body-input" class="block font-medium text-sm mb-1">Response Body:</label>
+                           <textarea id="handler-body-input" name="response_body" class="border border-gray-300 rounded px-3 py-2 w-full font-mono text-xs" rows="8" placeholder='{ "message": "Hello!" }'></textarea>
+                           <p class="text-xs text-gray-500 mt-1">Ener the raw body (e.g., JSON, XML, text).</p>
+                        </div>
+                        <div id="feedback-message" class="mt-3 text-sm"></div>
+                        <div class="mt-4">
+                          <button type="submit" id="save-handler-btn" class="bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded text-sm">Save Handler</button>
+                          <button type="button" id="cancel-handler-edit-btn" class="bg-gray-500 hover:bg-gray-600 text-white py-2 px-4 rounded ml-2 text-sm">Cancel</button>
+                      </div>
+                    </form>
+                </div>
+          </div>
+ 
+          <div id="tab-content-auth" class="hidden">
+            <button id="create-auth-profile-btn" class="bg-green-500 hover:bg-green-600 text-white py-1 px-3 rounded mb-3 text-sm">
+              Create New Profile
+            </button>
+            <h2 class="text-xl font-semibold mb-3">Authentication Profiles</h2>
+            <div id="auth-details">
+                <p class="text-gray-600">Edit or delete vailable authentication profiles below, or click "Create New Profile"</p>
               </div>
-              <div id="feedback-message" class="mt-3"></div>
-          </main>
-      </div>
+              <div id="auth-profile-list" class="mt-2">
+                  <p class="text-gray-600">Loading authentication profiles...</p>
+              </div>
+              <div id="auth-profile-form-container" class="hidden mt-4 border p-4 rounded bg-gray-50"></div>
+              <div id="auth-feedback-message" class="hidden mt-3 text-sm"></div>
+          </div>
+      </main>
+    </div>
+
   </div>
-
   <script>
-    const endpointsData = JSON.parse(document.getElementById('endpoints-data').textContent);
-    const treeContainer = document.getElementById('tree-container');
-    const detailsContainer = document.getElementById('endpoint-details');
-    const formContainer = document.getElementById('endpoint-form-container');
-    const endpointForm = document.getElementById('endpoint-form');
-    const pathInput = document.getElementById('path-input');
-    const dataInput = document.getElementById('data-input');
-    const titleElement = document.getElementById('endpoint-title');
-    const createNewBtn = document.getElementById('create-new-btn');
-    const cancelBtn = document.getElementById('cancel-edit-btn');
-    const feedbackDiv = document.getElementById('feedback-message');
-    const jsonValidationError = document.getElementById('json-validation-error');
-    const formModeInput = document.getElementById('form-mode'); // Hidden input for mode
+    // Pass Django context data needed by JS (like auth profiles, CSRF token)
 
-    const resizer = document.getElementById("resizer");
-    const sidebar = document.getElementById("sidebar");
-
-    let x = 0;
-    let sidebarWidth = sidebar.offsetWidth;
-
-    resizer.addEventListener("mousedown", (e) => {
-    x = e.clientX;
-    document.addEventListener("mousemove", mouseMoveHandler);
-    document.addEventListener("mouseup", mouseUpHandler);
-    });
-
-    function mouseMoveHandler(e) {
-    // Calculate new width based on mouse movement
-    const dx = e.clientX - x;
-    sidebarWidth = sidebar.offsetWidth + dx;
-    // Optional: set a min and max width
-    if (sidebarWidth < 150) sidebarWidth = 150;
-    if (sidebarWidth > 500) sidebarWidth = 500;
-    sidebar.style.width = sidebarWidth + "px";
-    x = e.clientX;
-    }
-
-    function mouseUpHandler() {
-    document.removeEventListener("mousemove", mouseMoveHandler);
-    document.removeEventListener("mouseup", mouseUpHandler);
-    }
-
-    // --- Tree Rendering Logic (Keep your existing createTree function) ---
-    function createTree(nodes) {
-    const ul = document.createElement("ul");
-    ul.className = "list-none pl-0";
-    
-    nodes.forEach(node => {
-        const li = document.createElement("li");
-        li.className = "mb-1";
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'flex items-center';
-
-        // Toggle Button/Placeholder
-        const toggleSpan = document.createElement("span");
-        toggleSpan.className = "mr-1 cursor-pointer";
-
-        if (node.children && node.children.length > 0) {
-            toggleSpan.innerHTML = `
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>`;
-
-            toggleSpan.addEventListener("click", (e) => {
-                e.stopPropagation();
-                const childrenUl = li.querySelector('ul');
-                if (childrenUl) {
-                    const isExpanded = childrenUl.style.display === "block";
-                    childrenUl.style.display = isExpanded ? "none" : "block";
-                    if (isExpanded) {
-                    toggleSpan.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                        </svg>`;
-                    } else {
-                    toggleSpan.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                        </svg>`;
-                    }
-                } 
-            });
-        } else {
-        toggleSpan.textContent = "•";
-        toggleSpan.style.visibility = 'visible';
-        }
-        wrapper.appendChild(toggleSpan);
-
-        // Node Label
-        const labelSpan = document.createElement("span");
-        labelSpan.textContent = node.name;
-
-        if (node.endpoint) {
-        labelSpan.className = "text-blue-600 cursor-pointer";  
-        labelSpan.title = `Click to view /${node.path}`;
-        labelSpan.addEventListener("click", (e) => {
-            e.stopPropagation();
-            showEndpointDetails(node.endpoint);
-            hideForm();
-        });
-        } else {
-        labelSpan.className = "text-gray-500";
-        labelSpan.title = `Intermediate path: ${node.path}`;
-        }
-        wrapper.appendChild(labelSpan);
-        li.appendChild(wrapper);
-
-        // child container
-        if (node.children && node.children.length > 0) {
-            const childContainer = createTree(node.children);
-            // Start collapsed
-            childContainer.style.display = "none"; 
-            childContainer.className = "list-none pl-3";
-            li.appendChild(childContainer);
-        }
-
-        ul.appendChild(li);
-    });
-    return ul;
-    }
-
-
-    // --- Show Endpoint Details ---
-    function showEndpointDetails(endpoint) {
-        hideForm(); // Hide form when showing details
-        detailsContainer.innerHTML = `
-            <h4 class="text-xl font-bold mb-2">Endpoint Details</h4>
-            <p><strong>Stored Path:</strong> ${endpoint.path}</p>
-            <p>
-            <strong>Full URL:</strong> 
-            <a href="${endpoint.url}/" target="_blank" class="text-blue-500 hover-underline">
-                ${endpoint.url}/
-            </a>
-            </p>
-            <div><strong>JSON Data:</strong>
-                <pre><code class="json bg-gray-100 p-2 block whitespace-pre-wrap">${JSON.stringify(endpoint.description, null, 2)}</code></pre>
-            </div>
-            <button id="edit-endpoint-btn" data-path="${endpoint.path}" class="mt-2 bg-blue-500 hover:bg-blue-600 text-white text-sm py-1 px-3 rounded">
-            Edit
-            </button>`;
-        titleElement.innerText = `Details for /${endpoint.path}`;
-        detailsContainer.style.display = 'block';
-
-        // Add event listener for the new Edit button
-        const editBtn = document.getElementById('edit-endpoint-btn');
-        if (editBtn) {
-            editBtn.addEventListener('click', () => {
-                displayForm('edit', endpoint);
-            });
-        }
-    }
-
-    // --- Display Create/Edit Form ---
-    function displayForm(mode, endpointData = null) {
-        detailsContainer.style.display = 'none'; // Hide details view
-        formModeInput.value = mode; // Set the hidden input mode
-        feedbackDiv.innerHTML = ''; // Clear previous feedback
-        jsonValidationError.textContent = ''; // Clear JSON validation error
-
-        const deleteButton = document.getElementById('delete-endpoint-btn');
-
-        if (mode === 'edit' && endpointData) {
-            titleElement.innerText = `Edit Endpoint: /${endpointData.path}`;
-            pathInput.value = endpointData.path;
-            pathInput.readOnly = true; // Path shouldn't be editable directly (use delete/create for path changes)
-            dataInput.value = JSON.stringify(endpointData.description, null, 2); // Pretty print JSON
-            deleteButton.classList.remove('hidden');
-        } else { // mode === 'create'
-            titleElement.innerText = 'Create New Endpoint';
-            endpointForm.reset(); // Clear form fields
-            pathInput.readOnly = false;
-            formModeInput.value = 'create'; // Ensure mode is create
-            deleteButton.classList.add('hidden');
-        }
-        formContainer.style.display = 'block';
-        pathInput.focus(); // Focus the path input for create, or data for edit
-        if (mode === 'edit') dataInput.focus();
-    }
-
-
-    // --- Hide Form ---
-    function hideForm() {
-        formContainer.style.display = 'none';
-        detailsContainer.style.display = 'block'; // Show the placeholder/details again
-        feedbackDiv.innerHTML = ''; // Clear feedback
-        jsonValidationError.textContent = '';
-        // Reset title if nothing is selected
-        if (!detailsContainer.querySelector('h4')) { // Check if details were ever shown
-            titleElement.innerText = 'Select or Create Endpoint';
-            detailsContainer.innerHTML = '<p>Click an endpoint from the tree to see details, or click "Create New Endpoint".</p>';
-        }
-    }
-
-    // --- Event Listeners ---
-    createNewBtn.addEventListener('click', () => {
-        displayForm('create');
-    });
-
-    cancelBtn.addEventListener('click', () => {
-        hideForm();
-    });
-
-    // --- Form Submission (AJAX POST) ---
-    endpointForm.addEventListener('submit', async (event) => {
-        event.preventDefault(); // Prevent traditional form submission
-        feedbackDiv.innerHTML = '<span class="text-info">Saving...</span>'; // Provide feedback
-        jsonValidationError.textContent = ''; // Clear previous error
-
-        const path = pathInput.value.trim();
-        const jsonData = dataInput.value.trim();
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        // Basic client-side validation
-        if (!path) {
-            feedbackDiv.innerHTML = '<span class="text-danger">Path cannot be empty.</span>';
-            return;
-        }
-        if (!jsonData) {
-            feedbackDiv.innerHTML = '<span class="text-danger">JSON data cannot be empty.</span>';
-            return;
-        }
-
-        // Client-side JSON validation (optional but helpful)
-        try {
-            JSON.parse(jsonData);
-        } catch (e) {
-            jsonValidationError.textContent = `Invalid JSON: ${e.message}`;
-            feedbackDiv.innerHTML = '<span class="text-danger">Please fix the JSON data.</span>';
-            return;
-        }
-
-        try {
-            const response = await fetch("{% url 'home' %}", { // POST to the home URL
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json', // Send data as JSON
-                    'X-CSRFToken': csrfToken,
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    path: path,
-                    data: jsonData // Send data as a string, view will parse
-                })
-            });
-
-            const result = await response.json(); // Always expect JSON back
-
-            if (response.ok) {
-                feedbackDiv.innerHTML = `<span class="text-success">${result.message}</span>`;
-                // --- Refresh page to see changes ---
-                // Simplest way to update the tree and details: reload
-                setTimeout(() => { window.location.reload(); }, 1500);
-                // More advanced: Update JS data and re-render tree without reload
-                // hideForm(); // Hide form on success
-            } else {
-                // Display specific errors from the server
-                let errorMessage = result.error || 'An unknown error occurred.';
-                // Handle dictionary errors (from ValidationError)
-                if (typeof errorMessage === 'object') {
-                    errorMessage = Object.entries(errorMessage)
-                                        .map(([field, messages]) => `${field}: ${messages.join(', ')}`)
-                                        .join('; ');
-                }
-                feedbackDiv.innerHTML = `<span class="text-danger">Error: ${errorMessage}</span>`;
-            }
-
-        } catch (error) {
-            console.error("Submission error:", error);
-            feedbackDiv.innerHTML = `<span class="text-danger">Network or submission error: ${error.message}</span>`;
-        }
-    });
-
-    const deleteBtn = document.getElementById('delete-endpoint-btn');
-    deleteBtn.addEventListener('click', async (event) => {
-        event.preventDefault();
-
-        if (!confirm("Are you sure you want to delete this endpoint?")) {
-            return;
-        }
-
-        feedbackDiv.innerHTML = '<span class="text-info">Deleting...<span>';
-        jsonValidationError.textContent = '';
-
-        const path = pathInput.value.trim();
-        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-
-        try {
-            const response = await fetch("{% url 'home' %}", {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/JSON',
-                    'X-CSRFToken': csrfToken,
-                    'Accept': 'application/JSON'
-                },
-                body: JSON.stringify({ path: path})
-            });
-            console.log(`delete request sent for ${path}`)
-            const result = await response.json();
-            if (response.ok) {
-                feedbackDiv.innerHTML = `<span class="text-success">${result.message}</span>`;
-                setTimeout(() => { window.location.reload(); }, 1500);
-            } else {
-                let errorMessage = result.error || 'An unknown error occured.';
-                if (typeof errorMessage === 'object') {
-                    errorMessage = Object.entries(errorMessage)
-                                        .map (([field, messages]) => `${field}: ${message.join(', ')}`)
-                                        .join('; ');
-                }
-                feedbackDiv.innerHTML = `<span class="text-danger">Error: ${errorMessage}</span>`;
-            }
-        } catch (error) {
-            console.error("Deletion error:", error);
-            feedbackDiv.innerHTML = `<span class="text-danger">Network or deletion error: ${error.message}</span>`;
-        }
-    })
-
-    // --- Initial Tree Render ---
-    if (endpointsData && Array.isArray(endpointsData)) {
-    treeContainer.innerHTML = ''; // Clear existing tree if re-rendering
-    treeContainer.appendChild(createTree(endpointsData));
-    } else {
-        treeContainer.innerHTML = '<p>No endpoints defined yet.</p>';
-    }
-
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    const MOKKAPI_ADMIN_PREFIX = "{{ mokkapi_core_prefix }}";
+    const HOME_URL = "{% url 'home' %}";
+    const USER = "{{ user.username }}";
   </script>
-</div>
+  <script src="{% static 'app.js' %}"></script>
+
 {% endblock %}

@@ -30,6 +30,7 @@ class ExtendedGroup(models.Model):
 class User(AbstractUser):
     # Add any additional fields you might need
     # For example, you might want to add organization info, contact details, etc.
+    is_admin = models.BooleanField(default=False)
     
     # For LDAP integration later
     is_ldap_user = models.BooleanField(default=False)

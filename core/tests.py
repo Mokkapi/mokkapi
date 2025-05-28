@@ -1,10 +1,11 @@
-# tests.py
+from django.core.exceptions import ValidationError
+from django.test import TestCase, Client
 
 import json
 import unittest
-from django.test import TestCase, Client
-from django.core.exceptions import ValidationError
+
 from .models import MokkBaseJSON
+
 
 class MokkBaseJSONModelTests(TestCase):
     def test_path_normalization(self):

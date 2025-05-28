@@ -128,70 +128,105 @@ class AuthenticationProfile(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_auth_type_display()})"
 
-# TODO add a XML based endpoint 
-class MokkBaseJSON(UserTrackedModel):
-    name = models.CharField(max_length=100, blank=True, null=True)
+
+class MockEndpoint(UserTrackedModel):
     path = models.CharField(
-        max_length=255,
-        unique=True,
-        help_text="The URL path to map (e.g., 'some/unique/path'), Leading/trailing slashes are ignored.."
-    )
-    data = models.JSONField(
-        help_text="The JSON object to be returned when this URL is requested."
-    )
-    # TODO add methods allowed on each endpoint
-    # TODO create a post requirement for endpoints (ie submit this JSON, receive this JSON)
-    """
-    method = models.CharField(
-        max_length=255,
-        unique=False,
-        default="GET",
-        help_text="What methods can be used on this endpoint?"
-    )
-    """
+        max_length=255, 
+        unique=True, 
+        db_index=True,
+        help_text="The unique URL path fragment."
+        )
     authentication = models.ForeignKey(
-        AuthenticationProfile,
-        on_delete=models.SET_NULL, # Endpoint becomes public if profile is deleted
-        null=True,  # Allows endpoint to have no authentication
-        blank=True, # Allows selecting "None" in forms/admin
-        related_name='endpoints',
-        help_text="Optional authentication profile required to access this endpoint."
-    )
+        AuthenticationProfile, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name="mock_endpoints", 
+        help_text="Optional authentication applied to all methods for this path."
+        )
+    description = models.TextField(
+        blank=True, 
+        help_text="Optional description for this endpoint."
+        )
+
+    def clean(self):
+        if self.path:
+            self.path = '/'.join(filter(None, self.path.strip().split('/')))
+            if not self.path:
+                 raise ValidationError({'path': "Path cannot be empty or just slashes after normalization."})
+        super().clean()
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        auth_status = "Protected" if self.authentication else "Public"
+        return f"/{self.path} - ({auth_status})"
     
+    class Meta:
+        verbose_name = "Mock Endpoint"
+        verbose_name_plural = "Mock Endpoints"
+        ordering = ['path']
+
+class ResponseHandler(models.Model):
+    endpoint = models.ForeignKey(
+        MockEndpoint, 
+        related_name='handlers', 
+        on_delete=models.CASCADE, 
+        help_text="The endpoint this handler belongs to."
+        )
+    http_method = models.CharField(
+        max_length=10, 
+        choices=[('GET', 'GET'), 
+                 ('POST', 'POST'), 
+                 ('PUT', 'PUT'), 
+                 ('PATCH', 'PATCH'), 
+                 ('DELETE', 'DELETE'), 
+                 ('OPTIONS', 'OPTIONS'),
+                 ('HEAD', 'HEAD')], 
+        db_index=True,
+        help_text="The HTTP method this handler responds to."
+        )
+    response_status_code = models.PositiveIntegerField(
+        default=200, 
+        help_text="The HTTP status code to return."
+        )
+    response_headers = models.JSONField(
+        default=dict, 
+        blank=True, 
+        help_text='JSON object of response headers (e.g., {"Content-Type": "application/json"}).'
+        )
+    response_body = models.TextField(
+        blank=True, 
+        help_text="The raw response body (JSON, XML, plain text, etc.)."
+        )
+    description = models.CharField(
+        max_length=255, 
+        blank=True, 
+        help_text="Optional description for this specific method handler."
+        )
+    
+    # TODO add optional delay/timeout functionality
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def clean(self):
-        """
-        Normalize the path by stripping leading/trailing slashes
-        and validate JSON data format if needed (though JSONField does basic validation).
-        """
-        super().clean() # Call parent's clean method first
-
-        if self.path:
-            # Normalize: remove leading/trailing slashes and collapse multiple slashes
-            normalized_path = '/'.join(filter(None, self.path.strip().split('/')))
-            if not normalized_path:
-                 raise ValidationError({'path': "Path cannot be empty or just slashes."})
-            self.path = normalized_path
-
-        # Optional: Add custom JSON validation logic here if needed
-        # For example, check if it's an object or follows a specific schema
-        # if not isinstance(self.data, dict):
-        #     raise ValidationError({'data': "JSON data must be an object (dictionary)."})
-
+        self.http_method = self.http_method.upper()
+        if not isinstance(self.response_headers, dict):
+             raise ValidationError({'response_headers': 'Headers must be a valid JSON object (dictionary).'})
+        super().clean()
 
     def save(self, *args, **kwargs):
-        """
-        Ensure clean() is called before saving.
-        """
-        self.full_clean() # Calls clean() and other model validation
+        self.full_clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
-        # Display the normalized path
-        auth_status = "Protected" if self.authentication else "Public"
-        return f"/{self.path} - ({auth_status})" # Add leading slash for display consistency
-    
-    # TODO add edit permissions by user group
+        return f"{self.http_method} handler for {self.endpoint}"
 
+    class Meta:
+        verbose_name = "Response Handler"
+        verbose_name_plural = "Response Handlers"
+        unique_together = ('endpoint', 'http_method') # This may change at some point
+        ordering = ['endpoint__path', 'http_method'] # Order logically
