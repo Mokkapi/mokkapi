@@ -18,6 +18,8 @@ urlpatterns = [
     path('', views.home_view, name='home'),
     path('admin/', views.admin_view, name='admin'),
     path('api/', include(router.urls)),
+    path('app/', views.react_app, name='react_app'),
+    path('whoami/', views.whoami, name='whoami-api'),
     #path('api-token-auth/', authtoken_views.obtain_auth_token, name='api_token_auth'),
     path('license/', include('license.urls')),
     path('login/', auth_views.LoginView.as_view(template_name='mokkapi/login.html'), name='login'),

@@ -1,10 +1,10 @@
 FROM node:23-slim AS frontend-builder
-WORKDIR /app
+WORKDIR /usr/src/app
 
-COPY package.json package-lock.json /app/
+COPY package.json package-lock.json ./
 RUN npm ci
-COPY assets/ /app/assets/
-COPY vite.config.js tailwind.config.js postcss.config.js tsconfig.json /app/
+COPY assets/ ./assets/
+COPY vite.config.js tailwind.config.js postcss.config.js tsconfig.json ./
 
 RUN npm run build
 
@@ -38,7 +38,7 @@ COPY . .
 # run entrypoint.sh
 # ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
 
-COPY --from=frontend-builder /app/static/ ./static/
+COPY --from=frontend-builder /usr/src/app/static/ ./static/
 
 # Collect static files (adjust if needed)
 RUN python manage.py collectstatic --noinput

@@ -7,7 +7,7 @@ from django.core.exceptions import ObjectDoesNotExist, PermissionDenied
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import IntegrityError, transaction
 from django.http import JsonResponse, Http404, HttpResponse, HttpResponseBadRequest
-from django.shortcuts import render, get_object_or_404
+from django.shortcuts import redirect, render, get_object_or_404
 from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
@@ -145,6 +145,22 @@ class MockEndpointViewSet(viewsets.ModelViewSet):
         handler = get_object_or_404(ResponseHandler, pk=handler_pk, endpoint=endpoint)
         handler.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+def react_app(request):
+    if not request.user.is_authenticated:
+        return redirect('mokkapi/login')
+    return render(request, 'mokkapi/react_app.html', {
+        "app_config": {
+            "apiPrefix": settings.CORE_ENDPOINT_PREFIX,
+            }
+        })
+
+def whoami(request):
+    return JsonResponse({
+        "is_authenticated": request.user.is_authenticated,
+        "is_staff":        request.user.is_staff,
+        "username":        request.user.username,
+    })
 
 @login_required
 def admin_view(request):

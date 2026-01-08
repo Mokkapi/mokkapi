@@ -13,5 +13,10 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "vite.config.ts", "assets"]
+  "include": [
+    "src", 
+    "src/assets/custom.d.ts",
+    "src/asset/types/images.d.ts",
+    "vite.config.ts", 
+    "assets"]
 }

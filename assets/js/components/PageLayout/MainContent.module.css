@@ -1,0 +1,5 @@
+.mainContent {
+  flex: 1;                    /* fill remaining space */
+  overflow-y: auto;           /* scroll if content grows */
+  padding: 1rem;
+}

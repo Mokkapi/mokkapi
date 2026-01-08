@@ -1,0 +1,8 @@
+.sidebar {
+  /* use the CSS variable for width */
+  width: var(--sidebar-width);
+  flex-shrink: 0;             /* never shrink below that width */
+  overflow-y: auto;           /* scroll if sidebar content grows */
+  background: #f5f5f5;        /* example bg */
+  border-right: 1px solid #ddd;
+}
