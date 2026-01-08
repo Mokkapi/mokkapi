@@ -1,5 +1,15 @@
+FROM node:23-slim AS frontend-builder
+WORKDIR /usr/src/app
+
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY assets/ ./assets/
+COPY vite.config.js tailwind.config.js postcss.config.js tsconfig.json ./
+
+RUN npm run build
+
 # Dockerfile
-FROM python:3.11.4-slim-buster
+FROM python:3.13.3-slim
 
 # set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -22,10 +32,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 #RUN sed -i 's/\r$//g' /usr/src/app/entrypoint.sh
 # RUN chmod +x /usr/src/app/entrypoint.sh
 
-
-
 # Copy project files
 COPY . .
 
 # run entrypoint.sh
 # ENTRYPOINT ["/usr/src/app/entrypoint.sh"]
+
+COPY --from=frontend-builder /usr/src/app/static/ ./static/
+
+# Collect static files (adjust if needed)
+RUN python manage.py collectstatic --noinput
+
+# Expose the port your app runs on (Gunicorn default)
+EXPOSE 8000
+
+# Start Gunicorn with your WSGI module (adjust as necessary)
+CMD ["gunicorn", "mokkapi.wsgi:application", "--bind", "0.0.0.0:8000"]

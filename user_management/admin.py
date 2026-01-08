@@ -5,7 +5,7 @@ from .models import User, ExtendedGroup, GroupObjectPermission, ChangeLog
 
 @admin.register(User)
 class UserAdmin(BaseUserAdmin):
-    list_display = ('username', 'email', 'first_name', 'last_name', 'is_staff', 'is_ldap_user')
+    list_display = ('username', 'email', 'first_name', 'last_name', 'is_admin', 'is_ldap_user')
     # Customize further as needed
 
 @admin.register(ExtendedGroup)

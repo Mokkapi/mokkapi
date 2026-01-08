@@ -26,7 +26,8 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = bool(os.environ.get("DEBUG", default=0))
 
-ALLOWED_HOSTS =  ["localhost", "127.0.0.1"] # os.environ.get("DJANGO_ALLOWED_HOSTS").split(" ")
+ALLOWED_HOSTS =  ["localhost", "127.0.0.1"] 
+#ALLOWED_HOSTS =  os.environ.get("DJANGO_ALLOWED_HOSTS").split(" ")
 
 
 # Application definition
@@ -38,11 +39,16 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'rest_framework',
     'core', 
     'user_management',
+    "license.apps.LicenseConfig",
+    # 'django_vite',
+    'storages',
 ]
 
 MIDDLEWARE = [
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -123,24 +129,75 @@ USE_I18N = True
 
 USE_TZ = True
 
+# DigitalOcean Spaces credentials (for uploading via collectstatic)
+AWS_ACCESS_KEY_ID = os.getenv('DIGITAL_OCEAN_SPACES_ACCESS_KEY', 'your_digitalocean_space_access_key')
+AWS_SECRET_ACCESS_KEY = os.getenv('DIGITAL_OCEAN_SPACES_SECRET_KEY', 'your_digitalocean_space_secret_key')
+AWS_STORAGE_BUCKET_NAME = os.getenv('DIGITAL_OCEAN_SPACES_NAME', 'your_space_name')
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
+# DigitalOcean Spaces endpoint (adjust the region if needed, e.g., nyc3)
+AWS_S3_ENDPOINT_URL = os.getenv('DIGITAL_OCEAN_SPACES_URL', 'https://nyc3.digitaloceanspaces.com')
 
-STATIC_URL = 'static/'
+# Optionally, define a custom domain. If not using one, Django can build the URL directly.
+# Example: 'your_space_name.nyc3.digitaloceanspaces.com'    
+AWS_S3_CUSTOM_DOMAIN = os.getenv('DIGITAL_OCEAN_SPACES_URL')
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
+AWS_S3_CDN_DOMAIN = os.getenv('DIGITAL_OCEAN_CDN_URL')
+
+# Set default parameters for uploaded files
+AWS_S3_OBJECT_PARAMETERS = {
+    'CacheControl': 'max-age=86400',  # Adjust caching as needed
+}
+
+# Specify the location within your Space to store static files
+AWS_LOCATION = 'static'
+
+# Use S3Boto3 storage for static files
+#STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+
+# Set STATIC_URL to point to the public URL of your Space's static folder
+STATIC_URL = "/static/"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-LOGIN_URL = '/login'
-LOGIN_REDIRECT_URL = '/'
-LOGOUT_REDIRECT_URL = '/'
+STATIC_ROOT = BASE_DIR / "staticfiles"
 
 STATICFILES_DIRS = [
     BASE_DIR / "static",
-    "/var/www/static/",
 ]
 
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 AUTH_USER_MODEL = 'user_management.User'
+
+CORE_ENDPOINT_PREFIX = '_mokkapi_api/'
+DJANGO_ADMIN_PREFIX = '_django_admin/'
+
+LOGIN_URL = CORE_ENDPOINT_PREFIX + 'login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+
+REST_FRAMEWORK = {
+    # Default authentication: Use session auth for browser interaction (after login)
+    # Add others like TokenAuthentication if your API will be consumed by external services needing API keys/tokens.
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    # Default for management endpoints: Require users to be logged in to access API endpoints
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    # Optional: Add default pagination for list views
+    # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    # 'PAGE_SIZE': 50, # Adjust page size as needed
+
+    # Optional: Configure default renderers/parsers if needed
+    # 'DEFAULT_RENDERER_CLASSES': [
+    #     'rest_framework.renderers.JSONRenderer',
+    #     'rest_framework.renderers.BrowsableAPIRenderer', # Useful during development
+    # ],
+    # 'DEFAULT_PARSER_CLASSES': [
+    #     'rest_framework.parsers.JSONParser',
+    # ]
+}
