@@ -115,3 +115,4 @@ node_modules
 node_modules/*
 staticfiles
 staticfiles/*
+node_modules

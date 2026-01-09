@@ -1,0 +1,150 @@
+{% extends 'mokkapi/base.html' %}
+
+{% block title %}
+Audit Logs - Mokkapi
+{% endblock title %}
+
+{% block content %}
+<section id="audit-logs" class="py-8">
+    <div class="container mx-auto px-4">
+        <h2 class="text-3xl font-bold text-center mb-8">Audit Logs</h2>
+
+        <!-- Filters -->
+        <div class="max-w-6xl mx-auto mb-6">
+            <form method="get" class="flex flex-wrap gap-4 items-end bg-white p-4 rounded-lg shadow">
+                <div>
+                    <label for="action" class="block text-sm font-medium text-gray-700 mb-1">Action Type</label>
+                    <select name="action" id="action" class="border border-gray-300 rounded px-3 py-2 text-sm">
+                        <option value="">All Actions</option>
+                        {% for value, label in action_choices %}
+                        <option value="{{ value }}" {% if current_action_filter == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label for="user" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                    <input type="text" name="user" id="user" value="{{ current_user_filter }}"
+                           placeholder="Filter by username"
+                           class="border border-gray-300 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded text-sm">
+                        Filter
+                    </button>
+                    <a href="{% url 'audit_logs' %}" class="bg-gray-300 hover:bg-gray-400 text-gray-800 px-4 py-2 rounded text-sm ml-2">
+                        Clear
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <!-- Audit Logs Table -->
+        <div class="max-w-6xl mx-auto bg-white rounded-lg shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Timestamp
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            User
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Action
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Endpoint ID
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Details
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for log in logs %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {{ log.timestamp|date:"Y-m-d H:i:s" }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                            {% if log.user %}
+                                {{ log.user.username }}
+                            {% else %}
+                                <span class="text-gray-400 italic">Anonymous</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full
+                                {% if log.action == 'CREATE' %}bg-green-100 text-green-800
+                                {% elif log.action == 'UPDATE' %}bg-blue-100 text-blue-800
+                                {% elif log.action == 'DELETE' %}bg-red-100 text-red-800
+                                {% elif log.action == 'READ' %}bg-gray-100 text-gray-800
+                                {% elif log.action == 'LOGIN' %}bg-indigo-100 text-indigo-800
+                                {% elif log.action == 'LOGOUT' %}bg-purple-100 text-purple-800
+                                {% elif log.action == 'AUTH_FAILURE' %}bg-yellow-100 text-yellow-800
+                                {% elif log.action == 'PERMISSION_DENIED' %}bg-orange-100 text-orange-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ log.action }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                            {% if log.endpoint_id %}
+                                {{ log.endpoint_id }}
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm text-gray-500">
+                            {% if log.old_value or log.new_value %}
+                            <button onclick="toggleDetails({{ log.id }})" class="text-indigo-600 hover:text-indigo-900 text-xs">
+                                Show Details
+                            </button>
+                            <div id="details-{{ log.id }}" class="hidden mt-2 text-xs">
+                                {% if log.old_value %}
+                                <div class="mb-1">
+                                    <strong class="text-red-600">Old:</strong>
+                                    <pre class="bg-gray-100 p-1 rounded overflow-x-auto max-w-xs">{{ log.old_value }}</pre>
+                                </div>
+                                {% endif %}
+                                {% if log.new_value %}
+                                <div>
+                                    <strong class="text-green-600">New:</strong>
+                                    <pre class="bg-gray-100 p-1 rounded overflow-x-auto max-w-xs">{{ log.new_value }}</pre>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% else %}
+                                <span class="text-gray-400">-</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">
+                            No audit logs found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if logs|length >= 100 %}
+        <div class="max-w-6xl mx-auto mt-4 text-center text-sm text-gray-500">
+            Showing the most recent 100 entries. Use filters to narrow results.
+        </div>
+        {% endif %}
+    </div>
+</section>
+
+<script>
+function toggleDetails(logId) {
+    const details = document.getElementById('details-' + logId);
+    if (details.classList.contains('hidden')) {
+        details.classList.remove('hidden');
+    } else {
+        details.classList.add('hidden');
+    }
+}
+</script>
+{% endblock content %}

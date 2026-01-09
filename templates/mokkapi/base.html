@@ -26,6 +26,7 @@
           <a href="{% url 'home' %}" class="text-gray-600 hover:text-gray-800 mx-2">Home</a>
           {% if user.is_staff %}
           <a href="{% url 'admin' %}" class="text-gray-600 hover:text-gray-800 mx-2">Admin</a>
+          <a href="{% url 'audit_logs' %}" class="text-gray-600 hover:text-gray-800 mx-2">Audit Logs</a>
           {% endif %}
           <form method="post" action="{% url 'logout' %}" style="display: inline;">
             {% csrf_token %}

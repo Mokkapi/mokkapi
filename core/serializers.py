@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 
 from rest_framework import serializers
 
-from .models import MockEndpoint, ResponseHandler, AuthenticationProfile
+from .models import MockEndpoint, ResponseHandler, AuthenticationProfile, AuditLog
 
 
 User = get_user_model()
@@ -240,3 +240,20 @@ class MockEndpointCreateSerializer(serializers.ModelSerializer):
             serializer.save()
 
         return instance
+
+
+# --- AuditLog Serializers ---
+class AuditLogSerializer(serializers.ModelSerializer):
+    """
+    Read-only serializer for AuditLog entries.
+    Includes username for display purposes.
+    """
+    username = serializers.CharField(source='user.username', read_only=True, allow_null=True)
+
+    class Meta:
+        model = AuditLog
+        fields = [
+            'id', 'user', 'username', 'action', 'endpoint_id',
+            'timestamp', 'old_value', 'new_value'
+        ]
+        read_only_fields = fields  # All fields are read-only

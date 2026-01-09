@@ -1,6 +1,16 @@
 # permissions.py (in your app or a common permissions module)
 from rest_framework import permissions
 
+
+class IsAdminUser(permissions.BasePermission):
+    """
+    Custom permission that only allows admin/staff users to access.
+    """
+
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.is_staff
+
+
 class IsOwnerOrAdmin(permissions.BasePermission):
     """
     Custom permission to only allow owners of an object or admin users to access/modify it.

@@ -230,3 +230,80 @@ class ResponseHandler(models.Model):
         verbose_name_plural = "Response Handlers"
         unique_together = ('endpoint', 'http_method') # This may change at some point
         ordering = ['endpoint__path', 'http_method'] # Order logically
+
+
+class AuditLog(models.Model):
+    """
+    Immutable log of system events for auditing and compliance.
+    Tracks CRUD operations, authentication events, and permission denials.
+    """
+    class Action(models.TextChoices):
+        CREATE = 'CREATE', 'Create'
+        READ = 'READ', 'Read'
+        UPDATE = 'UPDATE', 'Update'
+        DELETE = 'DELETE', 'Delete'
+        LOGIN = 'LOGIN', 'Login'
+        LOGOUT = 'LOGOUT', 'Logout'
+        AUTH_FAILURE = 'AUTH_FAILURE', 'Authentication Failure'
+        PERMISSION_DENIED = 'PERMISSION_DENIED', 'Permission Denied'
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        help_text="The user who performed the action (null for anonymous)."
+    )
+    action = models.CharField(
+        max_length=20,
+        choices=Action.choices,
+        db_index=True,
+        help_text="The type of action performed."
+    )
+    # Using IntegerField instead of ForeignKey so the ID persists after endpoint deletion
+    endpoint_id = models.IntegerField(
+        null=True,
+        blank=True,
+        db_index=True,
+        help_text="The ID of the endpoint involved (null for non-endpoint actions)."
+    )
+    timestamp = models.DateTimeField(
+        auto_now_add=True,
+        db_index=True,
+        help_text="When the action occurred."
+    )
+    old_value = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="JSON representation of the previous state (null for CREATE)."
+    )
+    new_value = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="JSON representation of the new state (null for DELETE)."
+    )
+
+    def save(self, *args, **kwargs):
+        # Prevent updates to existing records (immutability)
+        if self.pk is not None:
+            # Allow save but don't actually update - just return
+            return
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Prevent deletion (immutability)
+        return
+
+    def __str__(self):
+        username = self.user.username if self.user else 'Anonymous'
+        return f"{self.action} by {username} at {self.timestamp}"
+
+    class Meta:
+        verbose_name = "Audit Log"
+        verbose_name_plural = "Audit Logs"
+        ordering = ['-timestamp']
+        indexes = [
+            models.Index(fields=['user', 'action']),
+            models.Index(fields=['endpoint_id', 'action']),
+        ]

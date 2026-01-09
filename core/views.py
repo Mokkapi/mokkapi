@@ -21,9 +21,9 @@ import json
 import logging
 import secrets
 
-from .models import AuthenticationProfile, MockEndpoint, ResponseHandler
-from .permissions import IsOwnerOrAdmin
-from .serializers import AuthenticationProfileSerializer, MockEndpointCreateSerializer, MockEndpointSerializer, ResponseHandlerSerializer
+from .models import AuthenticationProfile, MockEndpoint, ResponseHandler, AuditLog
+from .permissions import IsOwnerOrAdmin, IsAdminUser
+from .serializers import AuthenticationProfileSerializer, MockEndpointCreateSerializer, MockEndpointSerializer, ResponseHandlerSerializer, AuditLogSerializer
 from .utils import build_tree_data_structure, check_authentication
 
 
@@ -260,3 +260,73 @@ class ResponseHandlerViewSet(viewsets.ModelViewSet):
         if endpoint:
             qs = qs.filter(endpoint__path=endpoint)  # or endpoint__id=endpoint
         return qs
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    API endpoint for viewing audit logs (admin only).
+    Read-only - audit logs cannot be created, updated, or deleted via API.
+    """
+    serializer_class = AuditLogSerializer
+    permission_classes = [permissions.IsAuthenticated, IsAdminUser]
+
+    def get_queryset(self):
+        """
+        Only admin users can view audit logs.
+        Supports filtering by user, action, and endpoint_id.
+        """
+        if not self.request.user.is_staff:
+            return AuditLog.objects.none()
+
+        queryset = AuditLog.objects.select_related('user').order_by('-timestamp')
+
+        # Optional filters
+        user_id = self.request.query_params.get('user')
+        if user_id:
+            queryset = queryset.filter(user_id=user_id)
+
+        action = self.request.query_params.get('action')
+        if action:
+            queryset = queryset.filter(action=action.upper())
+
+        endpoint_id = self.request.query_params.get('endpoint_id')
+        if endpoint_id:
+            queryset = queryset.filter(endpoint_id=endpoint_id)
+
+        return queryset
+
+
+@login_required
+def audit_logs_view(request):
+    """
+    Web view for displaying audit logs (admin only).
+    """
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden("You do not have permission to view audit logs.")
+
+    # Get filter parameters
+    action_filter = request.GET.get('action', '')
+    user_filter = request.GET.get('user', '')
+
+    # Get audit logs with optional filters
+    logs = AuditLog.objects.select_related('user').order_by('-timestamp')
+
+    if action_filter:
+        logs = logs.filter(action=action_filter)
+    if user_filter:
+        logs = logs.filter(user__username__icontains=user_filter)
+
+    # Limit to last 100 entries for performance
+    logs = logs[:100]
+
+    # Get action choices for filter dropdown
+    action_choices = AuditLog.Action.choices
+
+    context = {
+        'logs': logs,
+        'action_choices': action_choices,
+        'current_action_filter': action_filter,
+        'current_user_filter': user_filter,
+    }
+    return render(request, 'mokkapi/audit_logs.html', context)

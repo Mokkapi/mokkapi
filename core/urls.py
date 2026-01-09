@@ -11,12 +11,14 @@ router = DefaultRouter()
 router.register(r'auth-profiles', views.AuthenticationProfileViewSet, basename='authprofile')
 router.register(r'endpoints', views.MockEndpointViewSet, basename='mockendpoint')
 router.register(r'handlers', views.ResponseHandlerViewSet, basename='handler')
+router.register(r'audit-logs', views.AuditLogViewSet, basename='auditlog')
 
 
 
 urlpatterns = [
     path('', views.home_view, name='home'),
     path('admin/', views.admin_view, name='admin'),
+    path('audit-logs/', views.audit_logs_view, name='audit_logs'),
     path('api/', include(router.urls)),
     path('app/', views.react_app, name='react_app'),
     path('whoami/', views.whoami, name='whoami-api'),
