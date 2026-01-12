@@ -181,8 +181,8 @@ class MockEndpointSerializer(serializers.ModelSerializer):
 
 # Serializer specifically for CREATING endpoints, includes initial handlers
 class MockEndpointCreateSerializer(serializers.ModelSerializer):
-    # Override handlers to be writeable for creation
-    handlers = ResponseHandlerSerializer(many=True, required=True)
+    # Override handlers to be writeable for creation (optional)
+    handlers = ResponseHandlerSerializer(many=True, required=False)
 
     class Meta:
         model = MockEndpoint
@@ -201,7 +201,7 @@ class MockEndpointCreateSerializer(serializers.ModelSerializer):
 
     def validate_handlers(self, handlers_data):
         if not handlers_data:
-            raise serializers.ValidationError("At least one handler definition is required.")
+            return handlers_data  # Allow empty/no handlers
         methods = set()
         for handler in handlers_data:
             method = handler.get('http_method', '').upper()
@@ -213,8 +213,7 @@ class MockEndpointCreateSerializer(serializers.ModelSerializer):
         return handlers_data
 
     def create(self, validated_data):
-        print("attempting create in create serializer")
-        handlers_data = validated_data.pop('handlers')
+        handlers_data = validated_data.pop('handlers', []) or []
         endpoint = MockEndpoint.objects.create(**validated_data)
 
         for handler_data in handlers_data:

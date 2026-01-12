@@ -159,7 +159,7 @@ class OwnershipTests(TestCase):
             f'{self.api_base}/auth-profiles/',
             data=json.dumps({
                 'name': 'My Profile',
-                'auth_type': 'api_key'
+                'auth_type': 'API_KEY'
             }),
             content_type='application/json'
         )
@@ -171,13 +171,13 @@ class OwnershipTests(TestCase):
         """User list only shows their auth profiles."""
         AuthenticationProfile.objects.create(
             name='User1 Profile',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='key1',
             owner=self.user1
         )
         AuthenticationProfile.objects.create(
             name='User2 Profile',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='key2',
             owner=self.user2
         )
@@ -194,7 +194,7 @@ class OwnershipTests(TestCase):
         """User cannot attach another user's auth profile to endpoint."""
         other_profile = AuthenticationProfile.objects.create(
             name='Other User Profile',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='other-key',
             owner=self.user2
         )

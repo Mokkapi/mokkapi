@@ -74,7 +74,7 @@ class ConcurrencyTests(TestCase):
         """Auth profile changes are reflected in next request."""
         auth_profile = AuthenticationProfile.objects.create(
             name='Changing Auth',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='original-key',
             owner=self.user
         )

@@ -124,7 +124,7 @@ class SerializerTests(TestCase):
         """Auth profile serializer never exposes password hash."""
         profile = AuthenticationProfile.objects.create(
             name='Password Hidden Test',
-            auth_type='basic_auth',
+            auth_type='BASIC',
             basic_auth_username='testuser',
             owner=self.user
         )
@@ -142,7 +142,7 @@ class SerializerTests(TestCase):
         """API key is hidden or masked in list view."""
         AuthenticationProfile.objects.create(
             name='API Key Hidden Test',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='super-secret-key-12345',
             owner=self.user
         )

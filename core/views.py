@@ -25,6 +25,7 @@ from .models import AuthenticationProfile, MockEndpoint, ResponseHandler, AuditL
 from .permissions import IsOwnerOrAdmin, IsAdminUser
 from .serializers import AuthenticationProfileSerializer, MockEndpointCreateSerializer, MockEndpointSerializer, ResponseHandlerSerializer, AuditLogSerializer
 from .utils import build_tree_data_structure, check_authentication
+from .audit import create_audit_log, serialize_model_state
 
 
 logger = logging.getLogger(__name__)
@@ -50,38 +51,134 @@ class AuthenticationProfileViewSet(viewsets.ModelViewSet):
         return context
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        instance = serializer.save(owner=self.request.user)
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.CREATE,
+            endpoint_id=None,
+            old_value=None,
+            new_value=serialize_model_state(instance)
+        )
 
-    # Override retrieve/update/destroy if IsOwnerOrAdmin doesn't cover all needs,
-    # but checking obj.owner == request.user in has_object_permission should work for default actions.
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        old_value = serialize_model_state(instance)
+        instance = serializer.save()
+        new_value = serialize_model_state(instance)
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.UPDATE,
+            endpoint_id=None,
+            old_value=old_value,
+            new_value=new_value
+        )
+
+    def perform_destroy(self, instance):
+        old_value = serialize_model_state(instance)
+        instance.delete()
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.DELETE,
+            endpoint_id=None,
+            old_value=old_value,
+            new_value=None
+        )
 
 class MockEndpointViewSet(viewsets.ModelViewSet):
     """
     API endpoint for managing Mock Endpoints and their Handlers.
     """
     queryset = MockEndpoint.objects.prefetch_related('handlers').order_by('path')
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsOwnerOrAdmin]  # IsOwnerOrAdmin includes auth check with logging
 
-    lookup_field = 'id' 
+    lookup_field = 'id'
+
+    def get_queryset(self):
+        """Filter endpoints by owner for list views, allow all for detail views (permission check happens there)."""
+        user = self.request.user
+        if not user.is_authenticated:
+            return MockEndpoint.objects.none()
+        # For list action, filter by owner (unless admin)
+        if self.action == 'list':
+            if user.is_staff:
+                return MockEndpoint.objects.prefetch_related('handlers').order_by('path')
+            return MockEndpoint.objects.filter(owner=user).prefetch_related('handlers').order_by('path')
+        # For detail views (retrieve, update, destroy), return all - permission check will happen
+        return MockEndpoint.objects.prefetch_related('handlers').order_by('path')
 
     def get_serializer_class(self):
         """Use specific serializer for 'create' action."""
         if self.action == 'create':
             return MockEndpointCreateSerializer
         return MockEndpointSerializer # Default for other actions
-    
+
     def get_serializer_context(self):
         context = super().get_serializer_context()
         context.update({"request": self.request})
         return context
 
+    def list(self, request, *args, **kwargs):
+        """List endpoints with audit logging."""
+        response = super().list(request, *args, **kwargs)
+        create_audit_log(
+            user=request.user,
+            action=AuditLog.Action.READ,
+            endpoint_id=None,
+            old_value=None,
+            new_value=None
+        )
+        return response
+
+    def retrieve(self, request, *args, **kwargs):
+        """Retrieve endpoint with audit logging."""
+        response = super().retrieve(request, *args, **kwargs)
+        instance = self.get_object()
+        create_audit_log(
+            user=request.user,
+            action=AuditLog.Action.READ,
+            endpoint_id=instance.id,
+            old_value=None,
+            new_value=serialize_model_state(instance)
+        )
+        return response
+
     def perform_create(self, serializer):
-        """Set creator/owner if UserTrackedModel doesn't handle it."""
-        serializer.save(creator=self.request.user, owner=self.request.user) 
+        """Set creator/owner and log CREATE."""
+        instance = serializer.save(creator=self.request.user, owner=self.request.user)
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.CREATE,
+            endpoint_id=instance.id,
+            old_value=None,
+            new_value=serialize_model_state(instance)
+        )
 
     def perform_update(self, serializer):
-        """Set updated_by if UserTrackedModel doesn't handle it."""
-        serializer.save(updated_by=self.request.user) 
+        """Set updated_by and log UPDATE."""
+        instance = self.get_object()
+        old_value = serialize_model_state(instance)
+        instance = serializer.save(updated_by=self.request.user)
+        new_value = serialize_model_state(instance)
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.UPDATE,
+            endpoint_id=instance.id,
+            old_value=old_value,
+            new_value=new_value
+        )
+
+    def perform_destroy(self, instance):
+        """Log DELETE before deletion."""
+        old_value = serialize_model_state(instance)
+        endpoint_id = instance.id
+        instance.delete()
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.DELETE,
+            endpoint_id=endpoint_id,
+            old_value=old_value,
+            new_value=None
+        )
 
     @action(detail=True, methods=['post'], url_path='handlers', serializer_class=ResponseHandlerSerializer)
     def create_handler(self, request, path=None):
@@ -102,7 +199,14 @@ class MockEndpointViewSet(viewsets.ModelViewSet):
              )
 
         # Link handler to the endpoint and save
-        serializer.save(endpoint=endpoint)
+        handler = serializer.save(endpoint=endpoint)
+        create_audit_log(
+            user=request.user,
+            action=AuditLog.Action.CREATE,
+            endpoint_id=endpoint.id,
+            old_value=None,
+            new_value=serialize_model_state(handler)
+        )
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -132,7 +236,16 @@ class MockEndpointViewSet(viewsets.ModelViewSet):
         # if 'http_method' in serializer.validated_data and serializer.validated_data['http_method'].upper() != handler.http_method:
         #     return Response({'error': 'Cannot change HTTP method via update.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        old_value = serialize_model_state(handler)
         serializer.save()
+        new_value = serialize_model_state(handler)
+        create_audit_log(
+            user=request.user,
+            action=AuditLog.Action.UPDATE,
+            endpoint_id=endpoint.id,
+            old_value=old_value,
+            new_value=new_value
+        )
         return Response(serializer.data)
 
     @action(detail=True, methods=['delete'], url_path='handlers/(?P<handler_pk>[^/.]+)')
@@ -143,7 +256,15 @@ class MockEndpointViewSet(viewsets.ModelViewSet):
         """
         endpoint = self.get_object() # Ensure endpoint exists
         handler = get_object_or_404(ResponseHandler, pk=handler_pk, endpoint=endpoint)
+        old_value = serialize_model_state(handler)
         handler.delete()
+        create_audit_log(
+            user=request.user,
+            action=AuditLog.Action.DELETE,
+            endpoint_id=endpoint.id,
+            old_value=old_value,
+            new_value=None
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 def react_app(request):
@@ -199,12 +320,26 @@ def serve_mock_response(request, endpoint_path):
 
     try:
          mock_endpoint = get_object_or_404(MockEndpoint.objects.select_related('authentication'), path=normalized_path)
+    except Http404:
+         raise  # Let Django handle 404
     except Exception as e:
          # TODO log this error
          return JsonResponse({'error': 'Internal Server Error during endpoint lookup.'}, status=500)
 
     is_authenticated, auth_response = check_authentication(request, mock_endpoint.authentication)
     if not is_authenticated:
+        # Log authentication failure
+        create_audit_log(
+            user=None,
+            action=AuditLog.Action.AUTH_FAILURE,
+            endpoint_id=mock_endpoint.id,
+            old_value=None,
+            new_value={
+                'http_method': request.method,
+                'path': normalized_path,
+                'auth_type': mock_endpoint.authentication.auth_type if mock_endpoint.authentication else None
+            }
+        )
         return auth_response
 
     try:
@@ -235,6 +370,19 @@ def serve_mock_response(request, endpoint_path):
         for key, value in response_headers.items():
             if key.lower() != 'content-type':
                  response[key] = value
+
+        # Log successful mock endpoint access
+        create_audit_log(
+            user=None,
+            action=AuditLog.Action.READ,
+            endpoint_id=mock_endpoint.id,
+            old_value=None,
+            new_value={
+                'http_method': request.method,
+                'path': normalized_path,
+                'status_code': handler.response_status_code
+            }
+        )
         return response
 
     except Exception as e:
@@ -249,10 +397,41 @@ class ResponseHandlerViewSet(viewsets.ModelViewSet):
     # TODO figure out why the delete option successfully deletes the handler, but still runs into a "does not exist" error.
 
     def perform_create(self, serializer):
-        # you could optionally verify that request.data['endpoint'] 
-        # really belongs to this user’s endpoints, etc.
-        serializer.save()  # full_clean is called here by default
-        
+        # you could optionally verify that request.data['endpoint']
+        # really belongs to this user's endpoints, etc.
+        handler = serializer.save()  # full_clean is called here by default
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.CREATE,
+            endpoint_id=handler.endpoint_id,
+            old_value=None,
+            new_value=serialize_model_state(handler)
+        )
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        old_value = serialize_model_state(instance)
+        handler = serializer.save()
+        new_value = serialize_model_state(handler)
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.UPDATE,
+            endpoint_id=handler.endpoint_id,
+            old_value=old_value,
+            new_value=new_value
+        )
+
+    def perform_destroy(self, instance):
+        old_value = serialize_model_state(instance)
+        endpoint_id = instance.endpoint_id
+        instance.delete()
+        create_audit_log(
+            user=self.request.user,
+            action=AuditLog.Action.DELETE,
+            endpoint_id=endpoint_id,
+            old_value=old_value,
+            new_value=None
+        )
 
     def get_queryset(self):
         qs = super().get_queryset()

@@ -56,7 +56,7 @@ class AuthenticationProfileModelTests(TestCase):
         """API Key type profile rejects basic auth username/password."""
         profile = AuthenticationProfile(
             name='Test API Key',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='test-key-123',
             basic_auth_username='shouldnt_have',
             owner=self.user
@@ -71,7 +71,7 @@ class AuthenticationProfileModelTests(TestCase):
         """Basic Auth type profile rejects api_key field."""
         profile = AuthenticationProfile(
             name='Test Basic Auth',
-            auth_type='basic_auth',
+            auth_type='BASIC',
             api_key='shouldnt_have',
             basic_auth_username='testuser',
             owner=self.user
@@ -86,7 +86,7 @@ class AuthenticationProfileModelTests(TestCase):
         """Basic Auth type requires username."""
         profile = AuthenticationProfile(
             name='Test Basic Auth No User',
-            auth_type='basic_auth',
+            auth_type='BASIC',
             owner=self.user
         )
         try:
@@ -99,14 +99,14 @@ class AuthenticationProfileModelTests(TestCase):
         """Profile names must be unique."""
         AuthenticationProfile.objects.create(
             name='Duplicate Name',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='key1',
             owner=self.user
         )
         with self.assertRaises(Exception):
             AuthenticationProfile.objects.create(
                 name='Duplicate Name',
-                auth_type='api_key',
+                auth_type='API_KEY',
                 api_key='key2',
                 owner=self.user
             )
@@ -115,7 +115,7 @@ class AuthenticationProfileModelTests(TestCase):
         """API keys must be unique across all profiles."""
         AuthenticationProfile.objects.create(
             name='Profile 1',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='unique-key-123',
             owner=self.user
         )
@@ -123,7 +123,7 @@ class AuthenticationProfileModelTests(TestCase):
         with self.assertRaises(Exception):
             AuthenticationProfile.objects.create(
                 name='Profile 2',
-                auth_type='api_key',
+                auth_type='API_KEY',
                 api_key='unique-key-123',
                 owner=other_user
             )
@@ -133,7 +133,7 @@ class AuthenticationProfileModelTests(TestCase):
         """API key is auto-generated if not provided."""
         profile = AuthenticationProfile.objects.create(
             name='Auto Key Profile',
-            auth_type='api_key',
+            auth_type='API_KEY',
             owner=self.user
         )
         self.assertIsNotNone(profile.api_key)
@@ -143,7 +143,7 @@ class AuthenticationProfileModelTests(TestCase):
         """Existing API key is preserved on update."""
         profile = AuthenticationProfile.objects.create(
             name='Preserve Key',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='original-key-123',
             owner=self.user
         )
@@ -159,7 +159,7 @@ class AuthenticationProfileModelTests(TestCase):
         for i in range(5):
             profile = AuthenticationProfile.objects.create(
                 name=f'Profile {i}',
-                auth_type='api_key',
+                auth_type='API_KEY',
                 owner=self.user
             )
             profiles.append(profile)
@@ -171,7 +171,7 @@ class AuthenticationProfileModelTests(TestCase):
         """set_password stores hash, not plaintext."""
         profile = AuthenticationProfile.objects.create(
             name='Password Test',
-            auth_type='basic_auth',
+            auth_type='BASIC',
             basic_auth_username='testuser',
             owner=self.user
         )
@@ -184,7 +184,7 @@ class AuthenticationProfileModelTests(TestCase):
         """check_password returns True for correct password."""
         profile = AuthenticationProfile.objects.create(
             name='Check Password Test',
-            auth_type='basic_auth',
+            auth_type='BASIC',
             basic_auth_username='testuser',
             owner=self.user
         )
@@ -197,7 +197,7 @@ class AuthenticationProfileModelTests(TestCase):
         """check_password returns False for wrong password."""
         profile = AuthenticationProfile.objects.create(
             name='Wrong Password Test',
-            auth_type='basic_auth',
+            auth_type='BASIC',
             basic_auth_username='testuser',
             owner=self.user
         )
@@ -210,7 +210,7 @@ class AuthenticationProfileModelTests(TestCase):
         """check_password handles missing password hash gracefully."""
         profile = AuthenticationProfile.objects.create(
             name='Empty Hash Test',
-            auth_type='basic_auth',
+            auth_type='BASIC',
             basic_auth_username='testuser',
             owner=self.user
         )

@@ -464,7 +464,7 @@ class AuditLogAuthProfileCRUDTests(TestCase):
         initial_count = AuditLog.objects.count()
         self.client.post(
             f'{self.api_base}/auth-profiles/',
-            data=json.dumps({'name': 'Test Profile', 'auth_type': 'api_key'}),
+            data=json.dumps({'name': 'Test Profile', 'auth_type': 'API_KEY'}),
             content_type='application/json'
         )
         self.assertGreater(AuditLog.objects.count(), initial_count)
@@ -473,7 +473,7 @@ class AuditLogAuthProfileCRUDTests(TestCase):
         """Auth profile create log does NOT include api_key or password."""
         self.client.post(
             f'{self.api_base}/auth-profiles/',
-            data=json.dumps({'name': 'Secret Profile', 'auth_type': 'api_key'}),
+            data=json.dumps({'name': 'Secret Profile', 'auth_type': 'API_KEY'}),
             content_type='application/json'
         )
         log = AuditLog.objects.latest('timestamp')
@@ -485,7 +485,7 @@ class AuditLogAuthProfileCRUDTests(TestCase):
         """Updating an auth profile creates an audit log entry."""
         profile = AuthenticationProfile.objects.create(
             name='Update Test',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='test-key',
             owner=self.user
         )
@@ -502,7 +502,7 @@ class AuditLogAuthProfileCRUDTests(TestCase):
         """Deleting an auth profile creates an audit log entry."""
         profile = AuthenticationProfile.objects.create(
             name='Delete Test',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='delete-key',
             owner=self.user
         )
@@ -602,7 +602,7 @@ class AuditLogMockAccessTests(TestCase):
         """Failed authentication on mock endpoint is logged."""
         auth_profile = AuthenticationProfile.objects.create(
             name='Auth Test',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='correct-key',
             owner=self.user
         )
@@ -616,7 +616,7 @@ class AuditLogMockAccessTests(TestCase):
         """Mock auth failure log has action='AUTH_FAILURE'."""
         auth_profile = AuthenticationProfile.objects.create(
             name='Auth Failure Test',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='correct-key',
             owner=self.user
         )
@@ -713,15 +713,13 @@ class AuditLogQueryTests(TestCase):
         self.assertEqual(endpoint_logs.count(), 1)
 
     # --- Access Control ---
-    def test_user_sees_only_own_audit_logs(self):
-        """Regular user can only see their own audit logs."""
+    def test_user_cannot_see_audit_logs(self):
+        """Regular user cannot access audit logs (admin only)."""
         AuditLog.objects.create(user=self.user, action='CREATE', endpoint_id=1)
         AuditLog.objects.create(user=self.admin, action='CREATE', endpoint_id=2)
         self.client.login(username='testuser', password='testpass')
         response = self.client.get(f'{self.api_base}/audit-logs/')
-        data = response.json()
-        for log in data:
-            self.assertEqual(log.get('user'), self.user.id)
+        self.assertEqual(response.status_code, 403)
 
     def test_admin_sees_all_audit_logs(self):
         """Admin can see all audit logs."""

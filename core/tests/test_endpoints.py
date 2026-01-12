@@ -127,7 +127,7 @@ class EndpointManagementTests(TestCase):
         )
         auth_profile = AuthenticationProfile.objects.create(
             name='Test Auth',
-            auth_type='api_key',
+            auth_type='API_KEY',
             api_key='test-key-123',
             owner=self.user
         )
